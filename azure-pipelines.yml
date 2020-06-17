@@ -16,7 +16,7 @@ steps:
     command: 'restore'
     restoreSolution: '**/*.sln'
 
-- script: /bin/bash -c "sudo $AGENT_HOMEDIRECTORY/scripts/select-xamarin-sdk.sh 6_8_0_123"
+- script: /bin/bash -c "sudo $AGENT_HOMEDIRECTORY/scripts/select-xamarin-sdk.sh 6.8.0.123"
   displayName: 'Select the Xamarin SDK version 6.8.0.123'
 
 - script: /bin/bash -c "echo '##vso[task.setvariable variable=MD_APPLE_SDK_ROOT;]'/Applications/Xcode_11.4.1.app;sudo xcode-select --switch /Applications/Xcode_11.4.1.app/Contents/Developer"
