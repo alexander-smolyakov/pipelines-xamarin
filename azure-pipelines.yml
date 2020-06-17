@@ -1,61 +1,41 @@
-# Xamarin.Android and Xamarin.iOS
-# Build a Xamarin.Android and Xamarin.iOS app.
-# Add steps that test, sign, and distribute the app, save build artifacts, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/xamarin
+pool:
+  vmImage: 'macOS-10.15'
 
-jobs:
+variables:
+  buildConfiguration: 'Release'
+  outputDirectory: '$(build.binariesDirectory)/$(buildConfiguration)'
 
-- job: Android
-  pool:
-    vmImage: 'VS2017-Win2016'
+steps:
 
-  variables:
-    buildConfiguration: 'Release'
-    outputDirectory: '$(build.binariesDirectory)/$(buildConfiguration)'
+- task: NuGetToolInstaller@1
+  inputs:
+    checkLatest: true
 
-  steps:
-  - task: NuGetToolInstaller@0
+- task: NuGetCommand@2
+  inputs:
+    command: 'restore'
+    restoreSolution: '**/*.sln'
 
-  - task: NuGetCommand@2
-    inputs:
-      restoreSolution: '**/*.sln'
+- script: /bin/bash -c "sudo $AGENT_HOMEDIRECTORY/scripts/select-xamarin-sdk.sh 6_8_0_123"
+  displayName: 'Select the Xamarin SDK version 6.8.0.123'
 
-  - task: XamarinAndroid@1
-    inputs:
-      projectFile: '**/*droid*.csproj'
-      outputDirectory: '$(outputDirectory)'
-      configuration: '$(buildConfiguration)'
+- script: /bin/bash -c "echo '##vso[task.setvariable variable=MD_APPLE_SDK_ROOT;]'/Applications/Xcode_11.4.1.app;sudo xcode-select --switch /Applications/Xcode_11.4.1.app/Contents/Developer"
+  displayName: 'Updating xcode version to 11.4.1'
 
-  - task: AndroidSigning@3
-    inputs:
-      apksign: false
-      zipalign: false
-      apkFiles: '$(outputDirectory)/*.apk'
+- script: | 
+    SYMLINK=6_8_0_123 
+    MONOPREFIX=/Library/Frameworks/Mono.framework/Versions/$SYMLINK
+    echo "##vso[task.setvariable variable=DYLD_FALLBACK_LIBRARY_PATH;]$MONOPREFIX/lib:/lib:/usr/lib:$DYLD_LIBRARY_FALLBACK_PATH"
+    echo "##vso[task.setvariable variable=PKG_CONFIG_PATH;]$MONOPREFIX/lib/pkgconfig:$MONOPREFIX/share/pkgconfig:$PKG_CONFIG_PATH"
+    echo "##vso[task.setvariable variable=PATH;]$MONOPREFIX/bin:$PATH"
+    echo "##vso[task.setvariable variable=MONOPATH]$MONOPREFIX/bin"
+  name: monopathstep
+  displayName: 'Setting Mono path to target version 6.8.0.123'
 
-  - task: PublishBuildArtifacts@1
-    inputs:
-      pathtoPublish: '$(outputDirectory)'
-
-- job: iOS
-  pool:
-    vmImage: 'macOS 10.13'
-
-  steps:
-  # To manually select a Xamarin SDK version on the Hosted macOS agent, enable this script with the SDK version you want to target
-  # https://go.microsoft.com/fwlink/?linkid=871629
-  - script: sudo $AGENT_HOMEDIRECTORY/scripts/select-xamarin-sdk.sh 5_4_1 
-    displayName: 'Select Xamarin SDK version'
-    enabled: false
-
-  - task: NuGetToolInstaller@0
-
-  - task: NuGetCommand@2
-    inputs:
-      restoreSolution: '**/*.sln'
-
-  - task: XamariniOS@2
-    inputs:
-      solutionFile: '**/*.sln'
-      configuration: 'Release'
-      buildForSimulator: true
-      packageApp: false
+- task: XamariniOS@2
+  inputs:
+    solutionFile: '**/*iOS.csproj'
+    configuration: '$(buildConfiguration)'
+    buildToolLocation: '$(MONOPATH)'
+    buildForSimulator: true
+    packageApp: false
